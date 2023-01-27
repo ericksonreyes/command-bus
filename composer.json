@@ -33,7 +33,7 @@
   },
   "autoload": {
     "psr-4": {
-      "EricksonReyes\\CommandBus\\": "src/",
+      "EricksonReyes\\": "src/EricksonReyes/",
       "": "src/"
     }
   },

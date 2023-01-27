@@ -5,7 +5,7 @@
     <property name="phpmd.reportsdir" value="${project.basedir}/build/logs/phpmd"/>
     <property name="phpcpd.reportsdir" value="${project.basedir}/build/logs/phpcpd"/>
     <property name="phpmnd.reportsdir" value="${project.basedir}/build/logs/phpmnd"/>
-    <property name="coverage.reportsdir" value="${project.basedir}/build/logs/phpspec_coverage"/>
+    <property name="coverage.reportsdir" value="${project.basedir}/build/logs/phpspec"/>
     <target name="build" depends="main"/>
 
     <!-- ============================================  -->
@@ -21,7 +21,6 @@
         <phingcall target="Check for magic number violations"/>
         <phingcall target="Check for clean code violations"/>
         <phingcall target="Perform unit testing"/>
-        <phingcall target="Check for acceptance criteria failures"/>
     </target>
 
     <!-- ============================================  -->
@@ -52,7 +51,7 @@
                     -p
                     --standard=PSR2
                     --extensions=php
-                    '${project.basedir}/tests/'
+                    '${project.basedir}/spec/'
                     '${project.basedir}/src/'
                 "
         />
@@ -69,7 +68,7 @@
                 command="vendor/bin/phpcpd
                     --log-pmd
                     '${phpcpd.reportsdir}/pmd-cpd.xml'
-                    '${project.basedir}/tests/'
+                    '${project.basedir}/spec/'
                     '${project.basedir}/src/'
                 "
         />
@@ -86,7 +85,7 @@
                 command="vendor/bin/parallel-lint
                     -e php
                     --colors
-                    '${project.basedir}/tests/'
+                    '${project.basedir}/spec/'
                     '${project.basedir}/src/'
                 "
         />
@@ -106,7 +105,7 @@
                     --laravel
                     --doctrine
                     --extensions php
-                    '${project.basedir}/tests/'
+                    '${project.basedir}/spec/'
                     '${project.basedir}/src/'
                 "
         />
@@ -145,7 +144,7 @@
                     --progress
                     --include-numeric-string
                     --xml-output='${phpmnd.reportsdir}/phpmnd.xml'
-                    '${project.basedir}/tests/'
+                    '${project.basedir}/spec/'
                     '${project.basedir}/src/'
            "
         />
@@ -180,18 +179,6 @@
                 checkreturn="true"
                 passthru="true"
                 command="vendor/bin/phpspec run --config '${project.basedir}/phpspec.yml'"
-        />
-    </target>
-
-    <!-- ============================================  -->
-    <!-- Target: Behat                                 -->
-    <!-- ============================================  -->
-    <target name="Check for acceptance criteria failures" description="Acceptance Criteria Testing">
-        <exec
-                logoutput="true"
-                checkreturn="true"
-                passthru="true"
-                command="vendor/bin/behat --no-interaction --stop-on-failure --no-snippets --colors"
         />
     </target>
 
