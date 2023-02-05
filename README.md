@@ -3,7 +3,11 @@
 ![Code Coverage](https://github.com/ericksonreyes/command-bus/raw/master/coverage_badge.svg)
 [![Build](https://github.com/ericksonreyes/command-bus/actions/workflows/merge.yaml/badge.svg?branch=master)](https://github.com/ericksonreyes/command-bus/actions/workflows/merge.yaml)
 
-Nothing fancy. I just created my command bus that I've been copy-pasting over and over again.
+Nothing fancy. I just created my command bus that I've been copy-pasting over and over again. I usually move most of
+the business or application logic away from framework controllers (MVC) and put it into commands and handlers.
+
+But I don't want to couple the command handler with the framework controller. I want to be able to assign and switch
+them via a dependency injection library.
 
 ## Installation
 
@@ -11,183 +15,95 @@ Nothing fancy. I just created my command bus that I've been copy-pasting over an
 composer require ericksonreyes/command-bus
 ```
 
-### Example (Laravel)
+### Example (Lumen + Symfony Dependency Injection)
 
-Controller
+Symfony Service Container Configuration
+
+```yaml
+services:
+
+  uuid_generator:
+    class: App\Services\UuidGenerator
+
+  user_repository:
+    class: App\Repositories\UserRepository
+
+  user_registration_service:
+    class: Application\Users\Service\UserRegistrationService
+    arguments:
+    - '@user_repository'
+
+```
+
+Lumen Controller
 
 ```php
 namespace App\Http\Controllers;
 
 use App\Repository\UserRepository;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller as BaseController;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Application\Users\UseCase\RegisterUser;
 
-class Users extends BaseController {
+/**
+* Class UserRegistrationController
+ * @package App\Http\Controllers
+ */
+class UserRegistrationController extends BaseController {
 
-    private const DEFAULT_PAGE_SIZE = 35;
-
-    public function index(Request $request, UserRepository $repository): Response {
-        $page = (int) $request->get('page', 1);
-        $size = (int) $request->get('size', self::DEFAULT_PAGE_SIZE);
-        
-        if ($page < 1) {
-            $page = 1;
+    /**
+     * @param \Symfony\Component\DependencyInjection\ContainerInterface $container
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+    */
+    public function store(
+        ContainerInterface $container, 
+        Request $request
+    ): Response {
+        try {
+            $url = URL::current();
+            $id = $uuidGenerator->generate(prefix: 'user-');
+            $uuidGenerator = $container->get('uuid_generator');
+            $handler = $container->get('user_registration_service');
+            
+            $command = new RegisterUser(
+                $id,
+                $request->get('email'),
+                $request->get('password'),
+                $request->get('password_confirmation')
+            );
+            $handler->handleThis($command);
+            
+            return \response([
+                '_embedded' => [
+                    '_links' => [
+                        'self' => [
+                            'href' => url("{$url}/{$id}")
+                        ]
+                    ],
+                    'id' => $id                            
+                ]
+            ], 201);
         }
-        
-        if ($size < 1) {
-            $size = self::DEFAULT_PAGE_SIZE;
+        catch (\Exception $exception) {
+            $httpCode = 500;
+            if ($exception->getCode() >= 400 && $exception->getCode() < 600) {
+                $httpCode =$exception->getCode();
+            }
+            
+            return \response([
+                '_error' => [
+                    'code' => get_class($exception),
+                    'message' => $exception->getMessage()            
+                ]
+            ], $httpCode);
         }
-        
-        $offset = $page - 1;
-        $limit = $size;
-        $count = $repository->countUsers();
-        $data['users'] = $repository->getUsers($offset, $limit);  
-        
-        $data['pagination'] = new Pagination(
-            recordsFound: $count,
-            recordsPerPage: 10,
-            currentPage: $page
-        );
-        
-        return response()->view('list', $data);
     }
-    
+   
 }
-```
-
-View (Blade Templating)
-
-```php
-@if(isset($pagination) && $pagination->hasPages())
-    <ul class="pagination">
-    
-        @if($pagination->hasPreviousPage())
-            <li>
-                <a href="{{ route('records.list', ['page' => $pagination->previousPage()]) }}">
-                    Previous
-                </a>
-            </li>
-        @endif
-                        
-        @if($pagination->hasFirstPage())
-            <li>
-                <a href="{{ route('records.list', ['page' => $pagination->firstPage()]) }}">
-                    {{ $pagination->firstPage() }}
-                </a>
-            </li>
-            <li>...</li>
-        @endif                    
-        
-        @foreach($pagination->pages() as $page)
-            @if($pagination->currentPage() === $page)
-                <li><span class="span--strong">{{ $page }}</span></li>
-            @else
-                <li>
-                    <a href="{{ route('records.list', ['page' => $page]) }}">
-                        {{ $page }}
-                    </a>
-                </li>
-            @endif
-        @endforeach
-        
-        @if($pagination->hasLastPage())
-            <li>...</li>
-            <li>
-                <a href="{{ route('records.list', ['page' => $pagination->lastPage()]) }}">
-                    {{ $pagination->lastPage() }}
-                </a>
-            </li>
-        @endif   
-        
-        @if($pagination->hasNextPage())
-            <li>
-                <a href="{{ route('records.list', ['page' => $pagination->hasNextPage()]) }}">                
-                    Next
-                </a>
-            </li>
-        @endif             
-    </ul>
-@endif
-```
-
-View (Vanilla PHP)
-
-```php
-<?php 
-    if(isset($pagination) && $pagination->hasPages()) {
-        
-        ?><ul class="pagination"><?php
-        
-        
-        if($pagination->hasPreviousPage()) {
-          ?>
-            <li>
-                <a href="<?php echo route('records.list', ['page' => $pagination->previousPage()]) ?>">
-                    Previous
-                </a>
-            </li>
-          <?php
-        }
-
-
-        if ($pagination->hasFirstPage()) {
-          ?>
-            <li>
-                <a href="<?php echo route('records.list', ['page' => $pagination->firstPage()]) ?>">
-                    <?php echo $pagination->firstPage() ?>
-                </a>
-            </li>
-            <li>...</li>
-          <?php
-        }
-        
-        
-        foreach($pagination->pages() as $page) {
-          if($pagination->currentPage() === $page) { 
-            ?>
-              <li>
-                <span class="span--strong"><?php echo $page; ?></span>
-              </li>
-            <?php 
-          } 
-          else { 
-            ?>
-              <li>
-                <a href="<?php echo route('records.list', ['page' => $page]) ?>">
-                  <?php echo $page ?>
-                </a>
-              </li>
-            <?php
-          } 
-        } 
-        
-        
-      if($pagination->hasLastPage()) {
-        ?>
-          <li>...</li>
-          <li>
-              <a href="<?php echo route('records.list', ['page' => $pagination->lastPage()]) ?>">
-                  <?php echo $pagination->lastPage() ?>
-              </a>
-          </li>
-        <?php
-      } 
-      
-      
-      if($pagination->hasNextPage()) { 
-        ?>
-          <li>
-            <a href="<?php echo route('records.list', ['page' => $pagination->hasNextPage()]) ?>">                
-                Next
-            </a>
-          </li>
-        <?php 
-      }
-           
-      ?></ul><?php 
-    } 
-  ?>
 ```
 
 ### Author
