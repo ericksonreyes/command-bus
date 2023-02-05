@@ -8,5 +8,5 @@ extensions:
     - html
     - text
     output:
-      html: ./build/logs/phpspec_coverage
+      html: ./build/logs/phpspec
       clover: ./build/logs/clover.xml

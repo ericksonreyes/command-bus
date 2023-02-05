@@ -73,6 +73,4 @@ class MockChainedCommandHandler implements ChainedCommandHandlerInterface
             $this->nextHandler->handleThis($command);
         }
     }
-
-
 }

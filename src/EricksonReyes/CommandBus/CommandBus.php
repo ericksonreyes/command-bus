@@ -4,6 +4,8 @@ namespace EricksonReyes\CommandBus;
 
 use EricksonReyes\CommandBus\Exception\MissingHandleThisMethodException;
 use EricksonReyes\CommandBus\Exception\NoAssignedCommandHandlerForCommandException;
+use EricksonReyes\CommandBus\Trait\CommandBusExceptionHandlingTrait;
+use EricksonReyes\CommandBus\Trait\CommandBusLoggingTrait;
 use Exception;
 
 /**
@@ -12,6 +14,8 @@ use Exception;
  */
 class CommandBus implements CommandBusInterface
 {
+    use CommandBusLoggingTrait, CommandBusExceptionHandlingTrait;
+
     /**
      * @var string[]
      */
@@ -22,20 +26,6 @@ class CommandBus implements CommandBusInterface
      */
     private array $commandHandlers = [];
 
-    /**
-     * @var bool
-     */
-    private bool $suppressExceptionsThrown = false;
-
-    /**
-     * @var \Exception[]
-     */
-    private array $exceptionsCaught = [];
-
-    /**
-     * @var \EricksonReyes\CommandBus\CommandBusLoggerInterface[]
-     */
-    private array $commandBusLoggers = [];
 
     /**
      * Assigns a command to a handler.
@@ -99,54 +89,6 @@ class CommandBus implements CommandBusInterface
 
 
     /**
-     * Instructs the command bus to ignore or suppress caught exceptions during command handling.
-     *
-     * @return void
-     */
-    public function suppressExceptionThrown(): void
-    {
-        $this->logThis(
-            CommandBusLogType::Warning,
-            'Exception throwing was disabled.'
-        );
-        $this->suppressExceptionsThrown = true;
-    }
-
-    /**
-     * Instructs the command bus not to ignore or suppress caught exceptions during command handling.
-     *
-     * @return void
-     */
-    public function throwExceptionsCaught(): void
-    {
-        $this->logThis(
-            CommandBusLogType::Warning,
-            'Exception throwing was enabled.'
-        );
-        $this->suppressExceptionsThrown = false;
-    }
-
-    /**
-     * Returns true when all exceptions caught are being ignored or suppressed.
-     *
-     * @return bool
-     */
-    public function suppressesCaughtExceptions(): bool
-    {
-        return $this->suppressExceptionsThrown;
-    }
-
-    /**
-     * Returns true when all exceptions caught are being thrown.
-     *
-     * @return bool
-     */
-    public function throwsCaughtExceptions(): bool
-    {
-        return $this->suppressExceptionsThrown === false;
-    }
-
-    /**
      * Sends a command to its designated handler.
      *
      * @param mixed $command Instance of a command.
@@ -183,9 +125,9 @@ class CommandBus implements CommandBusInterface
             );
         }
 
-        $this->exceptionsCaught = [];
-        $this->acknowledgingHandlers = [];
         $commandHandler = $this->commandHandlers()[$commandClassName];
+        $this->resetExceptions();
+        $this->resetAcknowledgingHandlers();
 
         try {
             $this->logThis(
@@ -205,7 +147,7 @@ class CommandBus implements CommandBusInterface
                 )
             );
 
-            $this->exceptionsCaught[] = $exception;
+            $this->recordCaughtException($exception);
             if ($this->throwsCaughtExceptions()) {
                 throw new $exception;
             }
@@ -217,19 +159,10 @@ class CommandBus implements CommandBusInterface
                     $commandHandler::class
                 )
             );
-            $this->acknowledgingHandlers[] = $commandHandler::class;
+            $this->recordAcknowledgingHandler($commandHandler);
         }
     }
 
-    /**
-     * Returns a collection of exceptions caught while the shouldIgnoreOrphanedCommands() method is in effect.
-     *
-     * @return \Exception[]
-     */
-    public function suppressedExceptions(): array
-    {
-        return $this->exceptionsCaught;
-    }
 
     /**
      * Returns a collection of fully qualified class names of handlers who handled the recently accepted command.
@@ -242,37 +175,23 @@ class CommandBus implements CommandBusInterface
     }
 
     /**
-     * Registers a (or another) command bus logger.
+     * Resets acknowledging handlers
      *
-     * @param \EricksonReyes\CommandBus\CommandBusLoggerInterface $commandBusLogger
      * @return void
      */
-    public function registerCommandBusLogger(CommandBusLoggerInterface $commandBusLogger): void
+    private function resetAcknowledgingHandlers(): void
     {
-        $this->commandBusLoggers[] = $commandBusLogger;
+        $this->acknowledgingHandlers = [];
     }
 
     /**
-     * Returns an array of command bus loggers.
+     * Records acknowledging handler
      *
-     * @return \EricksonReyes\CommandBus\CommandBusLoggerInterface[]
-     */
-    public function commandBusLoggers(): array
-    {
-        return $this->commandBusLoggers;
-    }
-
-
-    /**
-     * @param \EricksonReyes\CommandBus\CommandBusLogType $logType
-     * @param string|\Exception $message
+     * @param \EricksonReyes\CommandBus\CommandHandlerInterface $commandHandler
      * @return void
      */
-    private function logThis(CommandBusLogType $logType, string|Exception $message): void
+    private function recordAcknowledgingHandler(CommandHandlerInterface $commandHandler): void
     {
-        foreach ($this->commandBusLoggers() as $commandBusLogger) {
-            $commandBusLogger->log($logType, $message);
-        }
+        $this->acknowledgingHandlers[] = $commandHandler::class;
     }
-
 }

@@ -201,7 +201,6 @@ class CommandBusSpec extends ObjectBehavior
 
         $this->registerCommandBusLogger($commandBusLogger)->shouldBeNull();
         $this->commandBusLoggers()->shouldContain($commandBusLogger);
-
     }
 
     /**
@@ -232,8 +231,7 @@ class CommandBusSpec extends ObjectBehavior
      */
     public function it_can_call_chained_command_handlers(
         MockChainedCommandHandler $secondCommandHandler
-    ): void
-    {
+    ): void {
         $command = new MockCommand();
         $commandHandler = new MockChainedCommandHandler();
 
