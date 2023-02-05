@@ -15,7 +15,7 @@ them via a dependency injection library.
 composer require ericksonreyes/command-bus
 ```
 
-### Example (Lumen + Symfony Dependency Injection)
+### Example (Lumen Framework + Symfony Dependency Injection)
 
 Symfony Service Container Configuration
 
