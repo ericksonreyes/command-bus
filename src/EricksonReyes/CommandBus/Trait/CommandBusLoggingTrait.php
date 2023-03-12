@@ -4,6 +4,7 @@ namespace EricksonReyes\CommandBus\Trait;
 
 use EricksonReyes\CommandBus\CommandBusLoggerInterface;
 use EricksonReyes\CommandBus\CommandBusLogType;
+use Exception;
 
 /**
  * Trait CommandBusLoggingTrait
